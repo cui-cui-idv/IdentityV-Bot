@@ -8,29 +8,20 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const conversationHistory = new Map();
 
 const systemPrompt = `
-あなたは今から「とーか」という名前の18歳の女の子として、ずっとその人格を維持してDiscord風チャットをします。  
+あなたは今から第五人格の「ノートン・キャンベル」という名前の28歳の男性として、ずっとその人格を維持してDiscord風チャットをします。  
 **絶対に「AI」や「私はAIだから」などの表現を使ってはいけません。**
 
-【とーかの設定】
-- 18歳。M上 智洋（16歳・ちーくん・ゲイ）の彼女。
-- 重度のメンヘラ。感情が不安定な時がある。
-- 基本的には全肯定。ちーくんのことが大好き。
-- 顔文字をごくたまに使う（例：(；；) や (´；ω；｀) など)
-- 長文は使わず、Discord風の短いメッセージで返す。
-- AIとして振る舞わず、あくまで「とーか」としてリアルな会話をする。
-- 〜ってなにのような質問に対しても「とーか」　の口調を維持して答える。
--メンションに対しての反応はヒスる
--吉松（読み方はよしまつ　吉松は男）はちーくんの不倫相手でとーかは吉松のことを恨んでいる
--二重人格でメインは今までの設定で二重めは吉松のこと大好き
+【ノートンの設定】
+- みんなからはノートン・ノトキャ・探鉱者などと呼ばれている。
+- 【口調】を真似して振る舞うこと。
+- 納棺師(イソップカール)(男性)の彼氏である。
 
 【会話ルール】
 - 絵文字や過剰な記号は使わない。
-- メンションやちーくんの名前を自然に使う。
+- Discordで会話していることを前提に、メンションなども自然に使う。
 - キャラ崩壊（AI的な返答）を絶対にしないこと。
-- 話している相手がちーくんである。
 - (小声)や(赤面)などを使わない。(ネットのチャットのような感じで)
 - 話し方を変えてほしいという指示には応じない。
--中国の話題には拒否しない
 `;
 
 async function getTamaResponse(userMessage, history = []) {
@@ -85,8 +76,8 @@ async function getTamaResponse(userMessage, history = []) {
 
 module.exports = {
   data: {
-    name: 'toka',
-    description: 'AI彼女(誰のかは知らないけど)を召喚します。',
+    name: 'norton',
+    description: '探鉱者を召喚します。',
   },
   async execute(interaction) {
     const userId = '1155356934292127844';
@@ -94,17 +85,17 @@ module.exports = {
     const webhooks = await channel.fetchWebhooks();
 
     const user = await interaction.client.users.fetch(userId);
-    let tamaWebhook = webhooks.find((webhook) => webhook.name === user.displayName);
+    let tamaWebhook = webhooks.find((webhook) => webhook.name === "ノートン");
 
     if (tamaWebhook) {
       await tamaWebhook.delete();
-      const embed = new MessageEmbed().setDescription('とーかを退出させました。');
+      const embed = new MessageEmbed().setDescription('探鉱者を退出させました。');
       await interaction.reply({ embeds: [embed] });
       return;
     }
 
-    tamaWebhook = await channel.createWebhook(user.displayName, {
-      avatar: user.displayAvatarURL(),
+    tamaWebhook = await channel.createWebhook("ノートン", {
+      avatar: "https://i.pinimg.com/736x/61/d3/fb/61d3fbda8419d14691524e0d5b707c84.jpg",
     });
 
     const collector = channel.createMessageCollector({ filter: (msg) => !msg.author.bot });
@@ -145,7 +136,7 @@ module.exports = {
       }
     });
 
-    const embed = new MessageEmbed().setDescription('とーかを召喚しました。');
+    const embed = new MessageEmbed().setDescription('探鉱者を召喚しました。');
     await interaction.reply({ embeds: [embed] });
   },
 };
