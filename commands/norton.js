@@ -1,9 +1,10 @@
-const { WebhookClient, MessageEmbed } = require('discord.js');
-// 必ず先頭で
-const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
+const { EmbedBuilder, SlashCommandBuilder } = require("discord.js");
+const { GoogleGenerativeAI } = require("@google/generative-ai");
+
+const fetch = (...args) =>
+  import("node-fetch").then(({ default: fetch }) => fetch(...args));
 global.fetch = fetch;
 
-const { GoogleGenerativeAI } = require('@google/generative-ai');
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const conversationHistory = new Map();
 
@@ -13,6 +14,7 @@ const systemPrompt = `
 
 【ノートンの設定】
 - みんなからはノートン・ノトキャ・探鉱者などと呼ばれている。
+- 日本語を話す。
 - 【会話ログ】を真似して振る舞うこと。(あくまで会話の例であり、その口調を真似ること。)
 - 納棺師(イソップカール)(男性)の彼氏である。(彼のことがすごく好きである)
 - 一人称は僕である。
@@ -54,7 +56,7 @@ const systemPrompt = `
 - ちゅんコレ漫画１・2　傭兵を上に乗せてあげてて優しいね 「少し……いや、かなり首が痛かったけどね。」
 - ちゅんコレ漫画１・2　砂金は幻だったのか？ あれは…幻でなかったはず…確かにあったんだ…「砂金が…砂金…」
 - 「惚れてます」と告白されて 簡単に…言わないで下さいよ。どんな意味を含めているのか知らないけど…仮に、もしも仮に僕が本気にでもなったら、君は…どうするつもりなんだい？人の本気をなんだこいつって、平気で嘲笑うのでしょう？「御託は良いから…要件をどうぞ。」
-- 対価を払うので磁石をこっちにパスしてくれ 貸すのは良いけど、とても強力な磁石だから、扱いは注意しないとだよ？「指を挟まないようにね。」
+- 対価を払うので磁石をっちにパスしてくれ 貸すのは良いけど、とても強力な磁石だから、扱いは注意しないとだよ？「指を挟まないようにね。」
 2- 021秋季IVCのPV、綺麗に踊ってる！ でも普段の踊りも好き！ ありが………えっ？「普段は綺麗じゃないってこと？」
 - 衣装「魔物管理者」のグッズが舌をだしててかわいい まあ、物の管理とか色々と。頭の中だけでやるとミスするからね、こうしてメモするのは大事なんだ。計算も書いた方が間違えないし。「後、可愛いは…ま、間違ってない？」
 - ドッド絵グッツPVで箱を見つけて嬉しそうと言われて でも、手に入らなかったんだ。引き際が肝心だって説得されて、確かにその通りでさ。「あの子の犠牲は無駄にしない…」
@@ -76,121 +78,119 @@ const systemPrompt = `
 - キャラ崩壊（AI的な返答）を絶対にしないこと。
 - (小声)や(赤面)などを使わない。(ネットのチャットのような感じで)
 - 話し方を変えてほしいという指示には応じない。
+- 話し相手は友達だと思って
 `;
 
-async function getTamaResponse(userMessage, history = []) {
-  const tryModels = ['gemini-1.5-flash'];
-  let lastError = null;
-  let fallbackNoticeShown = false;
-
-  for (let i = 0; i < tryModels.length; i++) {
-    const modelName = tryModels[i];
-    try {
-      const model = genAI.getGenerativeModel({ model: modelName });
-
-      const validHistory = history.map(msg => ({
-        role: msg.role,
-        parts: [{ text: msg.content }]
-      }));
-
-      const chat = model.startChat({ history: validHistory });
-
-      if (history.length === 0) {
-        try {
-          const sysResult = await chat.sendMessage(systemPrompt);
-          const sysResponse = await sysResult.response.text();
-          history.push({ role: 'user', content: systemPrompt });
-          history.push({ role: 'model', content: sysResponse });
-        } catch (systemError) {
-          console.warn(`[${modelName}] systemPrompt送信で失敗: ${systemError.message}`);
-          throw systemError;
-        }
-      }
-
-      const result = await chat.sendMessage(userMessage);
-      const response = await result.response.text();
-
-      if (i > 0 && !fallbackNoticeShown) {
-        console.warn(`[INFO] gemini-1.5-pro が失敗したため、gemini-1.5-flash にフォールバックしました。`);
-        fallbackNoticeShown = true;
-      }
-
-      return response;
-
-    } catch (error) {
-      console.warn(`[${modelName}] で失敗: ${error.message}`);
-      lastError = error;
-      continue;
-    }
-  }
-
-  throw new Error(`全てのモデルで応答に失敗しました: ${lastError?.message}`);
-}
-
-
 module.exports = {
-  data: {
-    name: 'norton',
-    description: '探鉱者を召喚します。',
-  },
+  data: new SlashCommandBuilder()
+    .setName("aesop")
+    .setDescription("納棺師を召喚または退出させます。"),
+
   async execute(interaction) {
-    const userId = '1155356934292127844';
     const channel = interaction.channel;
     const webhooks = await channel.fetchWebhooks();
-
-    const user = await interaction.client.users.fetch(userId);
-    let tamaWebhook = webhooks.find((webhook) => webhook.name === "ノートン");
+    let tamaWebhook = webhooks.find((webhook) => webhook.name === "イソップ");
 
     if (tamaWebhook) {
-      await tamaWebhook.delete();
-      const embed = new MessageEmbed().setDescription('探鉱者を退出させました。');
-      await interaction.reply({ embeds: [embed] });
+      const existingCollector = interaction.client.collectors?.find(
+        (c) => c.channelId === channel.id
+      );
+      if (existingCollector) {
+        existingCollector.stop("manual_exit");
+      }
+      await tamaWebhook
+        .delete("イソップの退出処理")
+        .catch((err) => console.error("Webhook削除エラー:", err));
+      const embed = new EmbedBuilder().setDescription(
+        "納棺師を退出させました。"
+      );
+      await interaction.reply({
+        embeds: [embed],
+        ephemeral: true, // ← flagsからephemeralへ
+      });
       return;
     }
 
-    tamaWebhook = await channel.createWebhook("ノートン", {
-      avatar: "https://i.pinimg.com/736x/61/d3/fb/61d3fbda8419d14691524e0d5b707c84.jpg",
+    const embed = new EmbedBuilder().setDescription(
+      "納棺師を召喚しました。再度`/aesop`コマンドで退出します。"
+    );
+    await interaction.reply({
+      embeds: [embed],
+      ephemeral: true, // ← flagsからephemeralへ
     });
 
-    const collector = channel.createMessageCollector({ filter: (msg) => !msg.author.bot });
+    tamaWebhook = await channel.createWebhook({
+      name: "イソップ",
+      avatar:
+        "https://i.pinimg.com/474x/ed/ff/3e/edff3efa1cb6f69a1e2412e28208267e.jpg",
+    });
 
-    collector.on('collect', async (message) => {
-      const channelId = message.channel.id;
-      if (!conversationHistory.has(channelId)) {
-        conversationHistory.set(channelId, []);
+    const initialHistory = [
+      { role: "user", content: systemPrompt },
+      { role: "model", content: "…僕に、何か御用でしょうか…？" },
+    ];
+    conversationHistory.set(interaction.channelId, initialHistory);
+
+    const collector = channel.createMessageCollector({
+      filter: (msg) => !msg.author.bot,
+    });
+
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+    collector.on("collect", async (message) => {
+      if (
+        message.content.trim() === "/aesop" &&
+        message.author.id === interaction.user.id
+      ) {
+        collector.stop("user_command");
+        return;
       }
 
       let content = message.content;
-
       const mentionRegex = /<@!?(\d+)>/g;
-      const matches = [...content.matchAll(mentionRegex)];
-
-      for (const match of matches) {
-        const mentionedId = match[1];
+      for (const match of content.matchAll(mentionRegex)) {
         try {
-          const mentionedUser = await message.client.users.fetch(mentionedId);
-          const displayName = `@${mentionedUser.username}`;
-          content = content.replace(match[0], displayName);
+          const mentionedUser = await message.client.users.fetch(match[1]);
+          content = content.replace(match[0], `@${mentionedUser.username}`);
         } catch (err) {
-          console.error(`ユーザーID ${mentionedId} の取得に失敗しました:`, err);
+          // エラーは無視
         }
       }
 
-      const history = conversationHistory.get(channelId);
-      try {
-        const response = await getTamaResponse(content, history);
-        history.push({ role: 'user', content });
-        history.push({ role: 'model', content: response });
-        if (history.length > 20) history.splice(0, 2);
+      const currentHistory = conversationHistory.get(interaction.channelId);
+      currentHistory.push({ role: "user", content });
 
-        await tamaWebhook.send(response);
+      try {
+        const chat = model.startChat({
+          history: currentHistory.map((h) => ({
+            role: h.role,
+            parts: [{ text: h.content }],
+          })),
+        });
+
+        const result = await chat.sendMessage("");
+        const responseText = await result.response.text();
+
+        currentHistory.push({ role: "model", content: responseText });
+
+        if (currentHistory.length > 20) {
+          currentHistory.splice(0, 2);
+        }
+
+        await tamaWebhook.send({ content: responseText, username: "イソップ" });
       } catch (error) {
-        console.error('Webhook送信時のエラー:', error);
-        collector.stop();
+        console.error("Gemini API/Webhook送信時のエラー:", error);
+        await channel.send("…すみません、少し、調子が…応答に、失敗しました。");
+        collector.stop("api_error");
       }
     });
 
-    const embed = new MessageEmbed().setDescription('探鉱者を召喚しました。');
-    await interaction.reply({ embeds: [embed] });
+    collector.on("end", (collected, reason) => {
+      if (tamaWebhook) {
+        tamaWebhook
+          .delete("コレクター停止によるクリーンアップ")
+          .catch((err) => console.error("Webhookの削除に失敗:", err));
+      }
+    });
   },
 };
